@@ -27,11 +27,23 @@ jobs:
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@v2
 
+    # ====== 新增：在编译前静默安装 C++ MFC 和 ATL 组件 ======
+    - name: Install C++ MFC and ATL
+      shell: powershell
+      run: |
+        $vsPath = &("${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe") -latest -property installationPath
+        $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
+        Write-Host "正在为 Visual Studio 安装 MFC 和 ATL 组件..."
+        Start-Process $installer -ArgumentList "modify --installPath `"$vsPath`" --add Microsoft.VisualStudio.Component.VC.ATLMFC --passive --norestart" -Wait
+        Write-Host "组件安装完成！"
+
     - name: Restore NuGet packages
       run: nuget restore ${{env.SOLUTION_FILE_PATH}}
 
+    # ====== 优化：加入 /p:clp=NoSummary 和强制 UTF-8 编码，防止中文导致生成错误的文件名 ======
     - name: Build solution
-      run: msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} ${{env.SOLUTION_FILE_PATH}}
+      run: |
+        msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:clp=NoSummary /p:AdditionalOptions="/utf-8" ${{env.SOLUTION_FILE_PATH}}
 
     # 将编译出来的程序打包并提供在线下载
     - name: Upload Build Artifacts
